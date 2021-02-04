@@ -1,44 +1,96 @@
 <!DOCTYPE html>
 <html>
-  <head>
-    <meta charset="utf-8" />
-    <title>Hello Electron React!</title>
-    <script>
-      (() => {
-        if (process?.env?.NODE_ENV !== 'development') {
-          const link = document.createElement('link');
-          link.rel = 'stylesheet';
-          link.href = './dist/style.css';
-          // HACK: Writing the script path should be done with webpack
-          document.getElementsByTagName('head')[0].appendChild(link);
-        }
-      })();
-    </script>
-  </head>
-  <body>
-    <div id="root"></div>
-    <script>
-      const scripts = [];
 
-      if (process.env.NODE_ENV === 'development') {
-        // Dynamically insert the DLL script in development env in the
-        // renderer process
-        scripts.push('../.erb/dll/renderer.dev.dll.js');
-
-        // Dynamically insert the bundled app script in the renderer process
-        const port = process.env.PORT || 1212;
-        scripts.push(`http://localhost:${port}/dist/renderer.dev.js`);
-      } else {
-        scripts.push('./dist/renderer.prod.js');
+<head>
+  <meta charset="utf-8" />
+  <title>Hello Electron React!</title>
+  <script>
+    (() => {
+      if (process?.env?.NODE_ENV !== 'development') {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = './dist/style.css';
+        // HACK: Writing the script path should be done with webpack
+        document.getElementsByTagName('head')[0].appendChild(link);
       }
+    })();
+  </script>
+  <style>
+    #notification {
+      position: fixed;
+      bottom: 20px;
+      left: 20px;
+      width: 200px;
+      padding: 20px;
+      border-radius: 5px;
+      background-color: white;
+      box-shadow: 0 4px 8px 0 rgba(0, 0, 0, 0.2);
+    }
 
-      if (scripts.length) {
-        document.write(
-          scripts
-            .map((script) => `<script defer src="${script}"><\/script>`)
-            .join('')
-        );
-      }
-    </script>
-  </body>
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Electron Auto Update Example</h1>
+  <p id="version"></p>
+  <div id="notification" class="hidden">
+    <p id="message"></p>
+    <button id="close-button" onClick="closeNotification()">
+      Close
+    </button>
+    <button id="restart-button" onClick="restartApp()" class="hidden">
+      Restart
+    </button>
+  </div>
+  <div id="root"></div>
+  <script>
+    const scripts = [];
+    if (process.env.NODE_ENV === 'development') {
+      // Dynamically insert the DLL script in development env in the
+      // renderer process
+      scripts.push('../.erb/dll/renderer.dev.dll.js');
+
+      // Dynamically insert the bundled app script in the renderer process
+      const port = process.env.PORT || 1212;
+      scripts.push(`http://localhost:${port}/dist/renderer.dev.js`);
+    } else {
+      scripts.push('./dist/renderer.prod.js');
+    }
+
+    if (scripts.length) {
+      document.write(
+        scripts
+          .map((script) => `<script defer src="${script}"><\/script>`)
+          .join('')
+      );
+    }
+
+    const { ipcRenderer } = require('electron');
+    const version = document.getElementById('version');
+
+    ipcRenderer.send('app_version');
+    ipcRenderer.on('app_version', (event, arg) => {
+      ipcRenderer.removeAllListeners('app_version');
+      version.innerText = 'Version ' + arg.version;
+    });
+    const notification = document.getElementById('notification');
+    const message = document.getElementById('message');
+    const restartButton = document.getElementById('restart-button');
+    ipcRenderer.on('update_available', () => {
+      ipcRenderer.removeAllListeners('update_available');
+      message.innerText = 'A new update is available. Downloading now...';
+      notification.classList.remove('hidden');
+    });
+    ipcRenderer.on('update_downloaded', () => {
+      ipcRenderer.removeAllListeners('update_downloaded');
+      message.innerText = 'Update Downloaded. It will be installed on restart. Restart now?';
+      restartButton.classList.remove('hidden');
+      notification.classList.remove('hidden');
+    });
+  </script>
+</body>
+
 </html>

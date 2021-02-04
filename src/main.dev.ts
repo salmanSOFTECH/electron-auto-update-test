@@ -11,7 +11,7 @@
 import 'core-js/stable';
 import 'regenerator-runtime/runtime';
 import path from 'path';
-import { app, BrowserWindow, shell } from 'electron';
+import { app, BrowserWindow, shell, ipcMain } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import log from 'electron-log';
 import MenuBuilder from './menu';
@@ -23,6 +23,10 @@ export default class AppUpdater {
     autoUpdater.checkForUpdatesAndNotify();
   }
 }
+
+ipcMain.on('restart_app', () => {
+  autoUpdater.quitAndInstall();
+});
 
 let mainWindow: BrowserWindow | null = null;
 
@@ -75,6 +79,13 @@ const createWindow = async () => {
     webPreferences: {
       nodeIntegration: true,
     },
+  });
+
+  autoUpdater.on('update-available', () => {
+    mainWindow.webContents.send('update_available');
+  });
+  autoUpdater.on('update-downloaded', () => {
+    mainWindow.webContents.send('update_downloaded');
   });
 
   mainWindow.loadURL(`file://${__dirname}/index.html`);
